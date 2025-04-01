@@ -1,15 +1,54 @@
-<h1>Welcome, {{ username }}!</h1>
-<h2>All Transport Requests</h2>
-{% if requests %}
-    <ul>
-    {% for req in requests %}
-        <li>
-            Request #{{ req[0] }}: {{ req[1] }} to {{ req[2] }}<br>
-            Patient Condition: {{ req[3] }}<br>
-            Status: {{ req[4] }} | Assigned Crew ID: {{ req[5] or 'Unassigned' }}
-        </li>
-    {% endfor %}
-    </ul>
-{% else %}
-    <p>No transport requests yet.</p>
-{% endif %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supervisor Dashboard - UnifiedEMS</title>
+</head>
+<body>
+    <h1>Welcome, {{ username }}!</h1>
+    <p>This is your Supervisor Dashboard.</p>
+    
+    <h2>All Transport Requests</h2>
+    {% if requests %}
+        <table border="1">
+            <tr>
+                <th>Request ID</th>
+                <th>Pickup</th>
+                <th>Destination</th>
+                <th>Condition</th>
+                <th>Status</th>
+                <th>Assigned Crew</th>
+                <th>Assign Crew</th>
+            </tr>
+            {% for req in requests %}
+            <tr>
+                <td>{{ req[0] }}</td>
+                <td>{{ req[1] }}</td>
+                <td>{{ req[2] }}</td>
+                <td>{{ req[3] }}</td>
+                <td>{{ req[4] }}</td>
+                <td>{{ req[5] or 'Unassigned' }}</td>
+                <td>
+                    {% if req[4] == 'Pending' %}
+                    <form method="POST">
+                        <input type="hidden" name="request_id" value="{{ req[0] }}">
+                        <select name="crew_id">
+                            {% for crew in crews %}
+                            <option value="{{ crew[0] }}">{{ crew[1] }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="submit" value="Assign">
+                    </form>
+                    {% else %}
+                    Assigned
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No transport requests yet.</p>
+    {% endif %}
+    
+    <p><a href="{{ url_for('logout') }}">Logout</a></p>
+</body>
+</html>

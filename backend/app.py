@@ -179,8 +179,8 @@ def hospital_dashboard():
         conn.close()
     return render_template('hospital_dashboard.html', username=session['username'], requests=requests)
 
-# Supervisor dashboard (view all requests)
-@app.route('/supervisor')
+# Supervisor dashboard with assignment functionality
+@app.route('/supervisor', methods=['GET', 'POST'])
 def supervisor_dashboard():
     if 'user_id' not in session or session['role'] != 'supervisor':
         return redirect(url_for('index'))
@@ -188,20 +188,40 @@ def supervisor_dashboard():
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        # Fetch all transport requests
         cur.execute(
             "SELECT request_id, pickup_location, destination, patient_condition, status, assigned_crew_id "
             "FROM transport_requests ORDER BY request_time DESC"
         )
         requests = cur.fetchall()
         logger.debug("Fetched %d requests for supervisor", len(requests))
+        
+        # Fetch available crews (users with role 'crew')
+        cur.execute("SELECT user_id, username FROM users WHERE role = 'crew'")
+        crews = cur.fetchall()
+        logger.debug("Fetched %d available crews", len(crews))
+        
+        if request.method == 'POST':
+            request_id = request.form['request_id']
+            crew_id = request.form['crew_id']
+            
+            # Update the transport request with assigned crew and status
+            cur.execute(
+                "UPDATE transport_requests SET assigned_crew_id = %s, status = 'Assigned', last_updated = CURRENT_TIMESTAMP "
+                "WHERE request_id = %s",
+                (crew_id, request_id)
+            )
+            conn.commit()
+            logger.debug("Assigned request %s to crew %s", request_id, crew_id)
+            return redirect(url_for('supervisor_dashboard'))
+        
+        return render_template('supervisor_dashboard.html', username=session['username'], requests=requests, crews=crews)
     except psycopg2.Error as e:
-        logger.error("Error fetching requests: %s", e)
-        requests = []
+        logger.error("Database error in supervisor dashboard: %s", e)
+        return "Database error", 500
     finally:
         cur.close()
         conn.close()
-    
-    return render_template('supervisor_dashboard.html', username=session['username'], requests=requests)
 
 if __name__ == '__main__':
     app.run(debug=True)
