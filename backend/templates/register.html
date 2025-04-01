@@ -6,18 +6,36 @@
 <body>
     <h1>Register</h1>
     <form method="POST" action="/register">
-        <label>Username:</label><br>
-        <input type="text" name="username" required><br>
-        <label>Password:</label><br>
-        <input type="password" name="password" required><br>
-        <label>Role:</label><br>
-        <select name="role">
+        <label for="username">Username:</label><br>
+        <input type="text" id="username" name="username" required><br>
+        <label for="password">Password:</label><br>
+        <input type="password" id="password" name="password" required><br>
+        <label for="role">Role:</label><br>
+        <select id="role" name="role" onchange="toggleHospitalId()">
             <option value="crew">Crew</option>
             <option value="hospital_staff">Hospital Staff</option>
             <option value="supervisor">Supervisor</option>
         </select><br>
+        <div id="hospital_id_div" style="display:none;">
+            <label for="hospital_id">Hospital ID:</label>
+            <input type="text" id="hospital_id" name="hospital_id"><br>
+        </div>
         <input type="submit" value="Register">
     </form>
     <p><a href="{{ url_for('login') }}">Back to Login</a></p>
+    <script>
+        function toggleHospitalId() {
+            var role = document.getElementById("role").value;
+            var hospitalIdDiv = document.getElementById("hospital_id_div");
+            var hospitalIdInput = document.getElementById("hospital_id");
+            if (role === "hospital_staff") {
+                hospitalIdDiv.style.display = "block";
+                hospitalIdInput.required = true;
+            } else {
+                hospitalIdDiv.style.display = "none";
+                hospitalIdInput.required = false;
+            }
+        }
+    </script>
 </body>
 </html>

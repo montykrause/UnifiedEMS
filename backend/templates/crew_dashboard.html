@@ -30,7 +30,7 @@
                         <td>{{ assignment[3] }}</td>
                         <td>{{ assignment[4] }}</td>
                         <td>
-                            <form method="POST">
+                            <form method="POST" action="{{ url_for('crew_dashboard') }}">
                                 <input type="hidden" name="request_id" value="{{ assignment[0] }}">
                                 <select name="status">
                                     <option value="Assigned" {% if assignment[4] == 'Assigned' %}selected{% endif %}>Assigned</option>
@@ -58,9 +58,13 @@
     </form>
     
     <h2>Your Current Location</h2>
-    <p>Latitude: {{ current_latitude }}</p>
-    <p>Longitude: {{ current_longitude }}</p>
-    <p>Last Updated: {{ last_updated }}</p>
+    {% if current_latitude and current_longitude %}
+        <p>Latitude: {{ current_latitude }}</p>
+        <p>Longitude: {{ current_longitude }}</p>
+        <p>Last Updated: {{ last_updated }}</p>
+    {% else %}
+        <p>No location data available.</p>
+    {% endif %}
     
     <p><a href="{{ url_for('logout') }}">Logout</a></p>
 </body>
