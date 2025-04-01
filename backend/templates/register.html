@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register - UnifiedEMS</title>
+</head>
+<body>
+    <h1>Register</h1>
+    <form method="POST" action="/register">
+        <label>Username:</label><br>
+        <input type="text" name="username" required><br>
+        <label>Password:</label><br>
+        <input type="password" name="password" required><br>
+        <label>Role:</label><br>
+        <select name="role">
+            <option value="crew">Crew</option>
+            <option value="hospital_staff">Hospital Staff</option>
+            <option value="supervisor">Supervisor</option>
+        </select><br>
+        <input type="submit" value="Register">
+    </form>
+    <p><a href="{{ url_for('login') }}">Back to Login</a></p>
+</body>
+</html>
