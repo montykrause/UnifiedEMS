@@ -1,21 +1,26 @@
 from flask import Flask, request, render_template, redirect, url_for, session
 import psycopg2
 import bcrypt
+import googlemaps
 import logging
+from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = '11928240@mK'  # Replace with a strong, random key
+app.secret_key = '11928240@mK'  # Your secret key
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Initialize Google Maps client with your API key
+gmaps = googlemaps.Client(key='AIzaSyB_pdbwazUTlMfotpQ6pHuvh_kyeyMfnmg')
 
 # Database connection function
 def get_db_connection():
     conn = psycopg2.connect(
         dbname="unifiedems",
         user="postgres",
-        password="11928240@mK",  # Replace with your PostgreSQL password
+        password="11928240@mK",  # Your PostgreSQL password
         host="localhost"
     )
     return conn
@@ -103,6 +108,78 @@ def register():
 
     return render_template('register.html')
 
+# Function to calculate distance and assign the closest crew
+def assign_closest_crew(pickup_location):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Fetch available crews with recent location updates (within the last hour)
+        cur.execute(
+            "SELECT al.crew_id, al.latitude, al.longitude "
+            "FROM ambulance_locations al "
+            "JOIN users u ON al.crew_id = u.user_id "
+            "WHERE u.role = 'crew' AND al.last_updated > NOW() - INTERVAL '1 hour'"
+        )
+        crews = cur.fetchall()
+        
+        if not crews:
+            logger.warning("No available crews found")
+            return None
+        
+        # Assuming pickup_location is "lat,lng" (e.g., "40.7128,-74.0060")
+        try:
+            pickup_lat, pickup_lng = map(float, pickup_location.split(','))
+        except ValueError:
+            logger.error("Invalid pickup location format: %s", pickup_location)
+            return None
+        
+        # Calculate distances using Google Maps Distance Matrix API
+        origins = [(crew[1], crew[2]) for crew in crews]  # List of (lat, lng) for each crew
+        destinations = [(pickup_lat, pickup_lng)]
+        
+        distance_matrix = gmaps.distance_matrix(
+            origins=origins,
+            destinations=destinations,
+            mode="driving",
+            units="metric"
+        )
+        
+        min_distance = float('inf')
+        closest_crew_id = None
+        
+        for i, row in enumerate(distance_matrix['rows']):
+            elements = row['elements']
+            if elements[0]['status'] == 'OK':
+                distance = elements[0]['distance']['value']  # Distance in meters
+                if distance < min_distance:
+                    crew_id = crews[i][0]
+                    # Check crew workload: max 3 active requests
+                    cur.execute(
+                        "SELECT COUNT(*) FROM transport_requests "
+                        "WHERE assigned_crew_id = %s AND status != 'Completed'",
+                        (crew_id,)
+                    )
+                    active_requests = cur.fetchone()[0]
+                    if active_requests < 3:
+                        min_distance = distance
+                        closest_crew_id = crew_id
+            else:
+                logger.warning("Distance matrix error for crew %s: %s", crews[i][0], elements[0]['status'])
+        
+        if closest_crew_id:
+            logger.debug("Assigned crew %s with distance %s meters", closest_crew_id, min_distance)
+        else:
+            logger.warning("No suitable crew found")
+        
+        return closest_crew_id
+    except Exception as e:
+        logger.error("Error in assign_closest_crew: %s", e)
+        return None
+    finally:
+        cur.close()
+        conn.close()
+
 # Crew dashboard with status update functionality
 @app.route('/crew', methods=['GET', 'POST'])
 def crew_dashboard():
@@ -146,7 +223,7 @@ def crew_dashboard():
     
     return render_template('crew_dashboard.html', username=session['username'], assignments=assignments)
 
-# Hospital staff dashboard (submit and view transport requests)
+# Hospital dashboard with automatic assignment
 @app.route('/hospital', methods=['GET', 'POST'])
 def hospital_dashboard():
     if 'user_id' not in session or session['role'] != 'hospital_staff':
@@ -154,21 +231,26 @@ def hospital_dashboard():
     
     if request.method == 'POST':
         logger.debug("Received POST request for transport request: %s", request.form)
-        pickup_location = request.form['pickup_location']
+        pickup_location = request.form['pickup_location']  # e.g., "40.7128,-74.0060"
         destination = request.form['destination']
         patient_condition = request.form['patient_condition']
+        
+        # Automatically assign the closest crew
+        assigned_crew_id = assign_closest_crew(pickup_location)
+        if not assigned_crew_id:
+            return "No available crews at this time.", 503
         
         conn = get_db_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO transport_requests (hospital_staff_id, pickup_location, destination, patient_condition) "
-                "VALUES (%s, %s, %s, %s) RETURNING request_id",
-                (session['user_id'], pickup_location, destination, patient_condition)
+                "INSERT INTO transport_requests (hospital_staff_id, pickup_location, destination, patient_condition, assigned_crew_id, status) "
+                "VALUES (%s, %s, %s, %s, %s, 'Assigned') RETURNING request_id",
+                (session['user_id'], pickup_location, destination, patient_condition, assigned_crew_id)
             )
             request_id = cur.fetchone()[0]
             conn.commit()
-            logger.debug("Inserted transport request with ID: %s", request_id)
+            logger.debug("Inserted transport request %s with assigned crew %s", request_id, assigned_crew_id)
         except psycopg2.Error as e:
             logger.error("Error inserting transport request: %s", e)
             conn.rollback()
@@ -203,35 +285,45 @@ def supervisor_dashboard():
     if 'user_id' not in session or session['role'] != 'supervisor':
         return redirect(url_for('index'))
     
+    if request.method == 'POST':
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            request_id = request.form['request_id']
+            new_crew_id = request.form['new_crew_id']  # Updated form field name for clarity
+            cur.execute(
+                "UPDATE transport_requests SET assigned_crew_id = %s, last_updated = CURRENT_TIMESTAMP "
+                "WHERE request_id = %s",
+                (new_crew_id, request_id)
+            )
+            conn.commit()
+            logger.debug("Reassigned request %s to crew %s", request_id, new_crew_id)
+        except psycopg2.Error as e:
+            logger.error("Error reassigning request: %s", e)
+            conn.rollback()
+        finally:
+            cur.close()
+            conn.close()
+        return redirect(url_for('supervisor_dashboard'))
+    
+    # For GET requests
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Fetch all transport requests
+        # Fetch all active requests, including unassigned ones
         cur.execute(
-            "SELECT request_id, pickup_location, destination, patient_condition, status, assigned_crew_id "
-            "FROM transport_requests ORDER BY request_time DESC"
+            "SELECT tr.request_id, tr.pickup_location, tr.destination, tr.patient_condition, tr.status, tr.assigned_crew_id, u.username "
+            "FROM transport_requests tr "
+            "LEFT JOIN users u ON tr.assigned_crew_id = u.user_id "
+            "WHERE tr.status != 'Completed'"
         )
         requests = cur.fetchall()
-        logger.debug("Fetched %d requests for supervisor", len(requests))
+        logger.debug("Fetched %d active requests for supervisor", len(requests))
         
-        # Fetch available crews (users with role 'crew')
+        # Fetch all crews for assignment options
         cur.execute("SELECT user_id, username FROM users WHERE role = 'crew'")
         crews = cur.fetchall()
-        logger.debug("Fetched %d available crews", len(crews))
-        
-        if request.method == 'POST':
-            request_id = request.form['request_id']
-            crew_id = request.form['crew_id']
-            
-            # Update the transport request with assigned crew and status
-            cur.execute(
-                "UPDATE transport_requests SET assigned_crew_id = %s, status = 'Assigned', last_updated = CURRENT_TIMESTAMP "
-                "WHERE request_id = %s",
-                (crew_id, request_id)
-            )
-            conn.commit()
-            logger.debug("Assigned request %s to crew %s", request_id, crew_id)
-            return redirect(url_for('supervisor_dashboard'))
+        logger.debug("Fetched %d available crews for assignment", len(crews))
         
         return render_template('supervisor_dashboard.html', username=session['username'], requests=requests, crews=crews)
     except psycopg2.Error as e:

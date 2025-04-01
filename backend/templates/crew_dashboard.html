@@ -7,6 +7,7 @@
 </head>
 <body>
     <h1>Welcome, {{ username }}!</h1>
+    
     <h2>Your Assignments</h2>
     {% if assignments %}
         <table>
@@ -23,11 +24,11 @@
             <tbody>
                 {% for assignment in assignments %}
                     <tr>
-                        <td>{{ assignment[0] }}</td> <!-- request_id -->
-                        <td>{{ assignment[1] }}</td> <!-- pickup_location -->
-                        <td>{{ assignment[2] }}</td> <!-- destination -->
-                        <td>{{ assignment[3] }}</td> <!-- patient_condition -->
-                        <td>{{ assignment[4] }}</td> <!-- status -->
+                        <td>{{ assignment[0] }}</td>
+                        <td>{{ assignment[1] }}</td>
+                        <td>{{ assignment[2] }}</td>
+                        <td>{{ assignment[3] }}</td>
+                        <td>{{ assignment[4] }}</td>
                         <td>
                             <form method="POST">
                                 <input type="hidden" name="request_id" value="{{ assignment[0] }}">
@@ -46,5 +47,21 @@
     {% else %}
         <p>No active assignments.</p>
     {% endif %}
+    
+    <h2>Update Your Location</h2>
+    <form method="POST" action="/update_location">
+        <label for="latitude">Latitude:</label><br>
+        <input type="number" step="0.0001" name="latitude" required><br>
+        <label for="longitude">Longitude:</label><br>
+        <input type="number" step="0.0001" name="longitude" required><br>
+        <input type="submit" value="Update Location">
+    </form>
+    
+    <h2>Your Current Location</h2>
+    <p>Latitude: {{ current_latitude }}</p>
+    <p>Longitude: {{ current_longitude }}</p>
+    <p>Last Updated: {{ last_updated }}</p>
+    
+    <p><a href="{{ url_for('logout') }}">Logout</a></p>
 </body>
 </html>

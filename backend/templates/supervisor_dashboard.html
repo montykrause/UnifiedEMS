@@ -1,55 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="refresh" content="30">
-    <title>Supervisor Dashboard - UnifiedEMS</title>
+    <title>EMS Supervisor Dashboard - UnifiedEMS</title>
+    <meta http-equiv="refresh" content="10"> <!-- Auto-refresh every 10 seconds -->
 </head>
 <body>
     <h1>Welcome, {{ username }}!</h1>
-    <p>This is your Supervisor Dashboard.</p>
+    <p>This is your EMS Supervisor Dashboard.</p>
     
-    <h2>All Transport Requests</h2>
-    {% if requests %}
-        <table border="1">
-            <tr>
-                <th>Request ID</th>
-                <th>Pickup</th>
-                <th>Destination</th>
-                <th>Condition</th>
-                <th>Status</th>
-                <th>Assigned Crew</th>
-                <th>Assign Crew</th>
-            </tr>
-            {% for req in requests %}
-            <tr>
-                <td>{{ req[0] }}</td>
-                <td>{{ req[1] }}</td>
-                <td>{{ req[2] }}</td>
-                <td>{{ req[3] }}</td>
-                <td>{{ req[4] }}</td>
-                <td>{{ req[5] or 'Unassigned' }}</td>
-                <td>
-                    {% if req[4] == 'Pending' %}
-                    <form method="POST">
-                        <input type="hidden" name="request_id" value="{{ req[0] }}">
-                        <select name="crew_id">
-                            {% for crew in crews %}
-                            <option value="{{ crew[0] }}">{{ crew[1] }}</option>
-                            {% endfor %}
-                        </select>
-                        <input type="submit" value="Assign">
-                    </form>
-                    {% else %}
-                    Assigned
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-    {% else %}
-        <p>No transport requests yet.</p>
-    {% endif %}
-    
-    <p><a href="{{ url_for('logout') }}">Logout</a></p>
+    <h2>Active Transport Requests</h2>
+    <table border="1">
+        <tr>
+            <th>Request ID</th>
+            <th>Pickup Location</th>
+            <th>Destination</th>
+            <th>Patient Condition</th>
+            <th>Status</th>
+            <th>Assigned Crew</th>
+            <th>Assign/Reassign</th>
+        </tr>
+        {% for req in requests %}
+        <tr>
+            <td>{{ req[0] }}</td>
+            <td>{{ req[1] }}</td>
+            <td>{{ req[2] }}</td>
+            <td>{{ req[3] }}</td>
+            <td>{{ req[4] }}</td>
+            <td>{{ req[6] or 'Unassigned' }}</td>
+            <td>
+                <form method="POST">
+                    <input type="hidden" name="request_id" value="{{ req[0] }}">
+                    <select name="new_crew_id">
+                        {% for crew in crews %}
+                        <option value="{{ crew[0] }}" {% if req[5] and crew[0] == req[5] %}selected{% endif %}>{{ crew[1] }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="submit" value="Assign/Reassign">
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
 </body>
 </html>
