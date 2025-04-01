@@ -49,11 +49,11 @@
     {% endif %}
     
     <h2>Update Your Location</h2>
-    <form method="POST" action="/update_location">
+    <form method="POST" action="{{ url_for('update_location') }}">
         <label for="latitude">Latitude:</label><br>
-        <input type="number" step="0.0001" name="latitude" required><br>
+        <input type="text" id="latitude" name="latitude" required><br>
         <label for="longitude">Longitude:</label><br>
-        <input type="number" step="0.0001" name="longitude" required><br>
+        <input type="text" id="longitude" name="longitude" required><br>
         <input type="submit" value="Update Location">
     </form>
     

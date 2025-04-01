@@ -108,6 +108,117 @@ def register():
 
     return render_template('register.html')
 
+# Update location route for crew members
+@app.route('/update_location', methods=['POST'])
+def update_location():
+    if 'user_id' not in session or session['role'] != 'crew':
+        return redirect(url_for('index'))
+    
+    latitude = request.form.get('latitude')
+    longitude = request.form.get('longitude')
+    
+    try:
+        lat = float(latitude)
+        lon = float(longitude)
+        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            raise ValueError("Invalid coordinates")
+    except ValueError:
+        logger.warning("Invalid location data submitted: lat=%s, lon=%s", latitude, longitude)
+        return "Invalid location data", 400
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Assuming ambulance_locations has columns: crew_id, latitude, longitude, last_updated
+        cur.execute(
+            "INSERT INTO ambulance_locations (crew_id, latitude, longitude, last_updated) "
+            "VALUES (%s, %s, %s, CURRENT_TIMESTAMP) "
+            "ON CONFLICT (crew_id) DO UPDATE SET latitude = %s, longitude = %s, last_updated = CURRENT_TIMESTAMP",
+            (session['user_id'], lat, lon, lat, lon)
+        )
+        conn.commit()
+        logger.debug("Updated location for crew %s: lat=%s, lon=%s", session['user_id'], lat, lon)
+    except psycopg2.Error as e:
+        logger.error("Error updating location: %s", e)
+        conn.rollback()
+        return "Error updating location", 500
+    finally:
+        cur.close()
+        conn.close()
+    
+    return redirect(url_for('crew_dashboard'))
+
+# Initialize the Google Maps client with your API key
+gmaps = googlemaps.Client(key='AIzaSyB_pdbwazUTlMfotpQ6pHuvh_kyeyMfnmg')
+
+def find_closest_unit(hospital_lat, hospital_lon):
+    """
+    Find the closest unit to the hospital based on driving time.
+    
+    Args:
+        hospital_lat (float): Latitude of the hospital.
+        hospital_lon (float): Longitude of the hospital.
+    
+    Returns:
+        int or None: The crew_id of the closest unit, or None if no units are available.
+    """
+    # Connect to your database (replace with your connection logic)
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Fetch available units with recent location updates
+    cur.execute("""
+        SELECT crew_id, latitude, longitude
+        FROM ambulance_locations
+        WHERE last_updated > NOW() - INTERVAL '1 hour'
+    """)
+    units = cur.fetchall()
+    
+    if not units:
+        cur.close()
+        conn.close()
+        return None
+    
+    # Prepare origins (unit locations) and destination (hospital)
+    origins = [(unit[1], unit[2]) for unit in units]  # List of (lat, lon) tuples
+    destination = (hospital_lat, hospital_lon)
+    
+    # Call the Distance Matrix API
+    result = gmaps.distance_matrix(
+        origins=origins,
+        destinations=[destination],
+        mode="driving",  # Use driving directions
+        units="metric",
+        departure_time=datetime.now()  # Include traffic conditions
+    )
+    
+    # Find the unit with the shortest driving time
+    min_duration = float('inf')
+    closest_unit_id = None
+    
+    for i, row in enumerate(result['rows']):
+        element = row['elements'][0]
+        if element['status'] == 'OK':
+            duration = element['duration']['value']  # Time in seconds
+            if duration < min_duration:
+                min_duration = duration
+                closest_unit_id = units[i][0]
+    
+    cur.close()
+    conn.close()
+    return closest_unit_id
+
+# Example usage
+hospital_lat, hospital_lon = 40.7128, -74.0060  # Example: New York City
+closest_unit = find_closest_unit(hospital_lat, hospital_lon)
+if closest_unit:
+    print(f"Closest unit ID: {closest_unit}")
+else:
+    print("No available units.")
+
+
+
+
 # Function to calculate distance and assign the closest crew
 def assign_closest_crew(pickup_location):
     conn = get_db_connection()
