@@ -1,15 +1,50 @@
-<h1>Welcome, {{ username }}!</h1>
-<h2>Your Assignments</h2>
-{% if assignments %}
-    <ul>
-    {% for assignment in assignments %}
-        <li>
-            Request #{{ assignment[0] }}: {{ assignment[1] }} to {{ assignment[2] }}<br>
-            Patient Condition: {{ assignment[3] }}<br>
-            Status: {{ assignment[4] }}
-        </li>
-    {% endfor %}
-    </ul>
-{% else %}
-    <p>No active assignments.</p>
-{% endif %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crew Dashboard - UnifiedEMS</title>
+</head>
+<body>
+    <h1>Welcome, {{ username }}!</h1>
+    <h2>Your Assignments</h2>
+    {% if assignments %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Request ID</th>
+                    <th>Pickup Location</th>
+                    <th>Destination</th>
+                    <th>Patient Condition</th>
+                    <th>Status</th>
+                    <th>Update Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for assignment in assignments %}
+                    <tr>
+                        <td>{{ assignment[0] }}</td> <!-- request_id -->
+                        <td>{{ assignment[1] }}</td> <!-- pickup_location -->
+                        <td>{{ assignment[2] }}</td> <!-- destination -->
+                        <td>{{ assignment[3] }}</td> <!-- patient_condition -->
+                        <td>{{ assignment[4] }}</td> <!-- status -->
+                        <td>
+                            <form method="POST">
+                                <input type="hidden" name="request_id" value="{{ assignment[0] }}">
+                                <select name="status">
+                                    <option value="Assigned" {% if assignment[4] == 'Assigned' %}selected{% endif %}>Assigned</option>
+                                    <option value="In Progress" {% if assignment[4] == 'In Progress' %}selected{% endif %}>In Progress</option>
+                                    <option value="Completed" {% if assignment[4] == 'Completed' %}selected{% endif %}>Completed</option>
+                                </select>
+                                <input type="submit" value="Update">
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No active assignments.</p>
+    {% endif %}
+</body>
+</html>

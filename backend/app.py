@@ -103,14 +103,32 @@ def register():
 
     return render_template('register.html')
 
-# Crew dashboard (shows assignments)
-@app.route('/crew')
+# Crew dashboard with status update functionality
+@app.route('/crew', methods=['GET', 'POST'])
 def crew_dashboard():
     if 'user_id' not in session or session['role'] != 'crew':
         return redirect(url_for('index'))
     
     conn = get_db_connection()
     cur = conn.cursor()
+    
+    if request.method == 'POST':
+        request_id = request.form['request_id']
+        new_status = request.form['status']
+        
+        try:
+            cur.execute(
+                "UPDATE transport_requests SET status = %s, last_updated = CURRENT_TIMESTAMP "
+                "WHERE request_id = %s AND assigned_crew_id = %s",
+                (new_status, request_id, session['user_id'])
+            )
+            conn.commit()
+            logger.debug("Updated status of request %s to %s by crew %s", request_id, new_status, session['user_id'])
+        except psycopg2.Error as e:
+            logger.error("Error updating request status: %s", e)
+            conn.rollback()
+    
+    # Fetch active assignments
     try:
         cur.execute(
             "SELECT request_id, pickup_location, destination, patient_condition, status "

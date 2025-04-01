@@ -1,25 +1,57 @@
-<h1>Welcome, {{ username }}!</h1>
-<h2>Submit a Transport Request</h2>
-<form method="POST">
-    <label>Pickup Location:</label><br>
-    <input type="text" name="pickup_location" required><br>
-    <label>Destination:</label><br>
-    <input type="text" name="destination" required><br>
-    <label>Patient Condition:</label><br>
-    <textarea name="patient_condition" required></textarea><br>
-    <input type="submit" value="Submit Request">
-</form>
-<h2>Your Transport Requests</h2>
-{% if requests %}
-    <ul>
-    {% for req in requests %}
-        <li>
-            Request #{{ req[0] }}: {{ req[1] }} to {{ req[2] }}<br>
-            Patient Condition: {{ req[3] }}<br>
-            Status: {{ req[4] }}
-        </li>
-    {% endfor %}
-    </ul>
-{% else %}
-    <p>No transport requests yet.</p>
-{% endif %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="30">
+    <title>Hospital Staff Dashboard - UnifiedEMS</title>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome, {{ username }}!</h1>
+    <p><em>Page refreshes every 30 seconds for the latest updates.</em></p>
+
+    <h2>Submit a Transport Request</h2>
+    <form method="POST">
+        <label>Pickup Location:</label><br>
+        <input type="text" name="pickup_location" required><br>
+        <label>Destination:</label><br>
+        <input type="text" name="destination" required><br>
+        <label>Patient Condition:</label><br>
+        <textarea name="patient_condition" required></textarea><br>
+        <input type="submit" value="Submit Request">
+    </form>
+
+    <h2>Your Transport Requests</h2>
+    {% if requests %}
+        <table>
+            <tr>
+                <th>Request ID</th>
+                <th>Pickup</th>
+                <th>Destination</th>
+                <th>Condition</th>
+                <th>Status</th>
+            </tr>
+            {% for req in requests %}
+            <tr>
+                <td>{{ req[0] }}</td>
+                <td>{{ req[1] }}</td>
+                <td>{{ req[2] }}</td>
+                <td>{{ req[3] }}</td>
+                <td>{{ req[4] }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No transport requests yet.</p>
+    {% endif %}
+
+    <p><a href="{{ url_for('logout') }}">Logout</a></p>
+</body>
+</html>
