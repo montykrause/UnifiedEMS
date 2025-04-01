@@ -1,0 +1,15 @@
+<h1>Welcome, {{ username }}!</h1>
+<h2>All Transport Requests</h2>
+{% if requests %}
+    <ul>
+    {% for req in requests %}
+        <li>
+            Request #{{ req[0] }}: {{ req[1] }} to {{ req[2] }}<br>
+            Patient Condition: {{ req[3] }}<br>
+            Status: {{ req[4] }} | Assigned Crew ID: {{ req[5] or 'Unassigned' }}
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No transport requests yet.</p>
+{% endif %}

@@ -1,0 +1,15 @@
+<h1>Welcome, {{ username }}!</h1>
+<h2>Your Assignments</h2>
+{% if assignments %}
+    <ul>
+    {% for assignment in assignments %}
+        <li>
+            Request #{{ assignment[0] }}: {{ assignment[1] }} to {{ assignment[2] }}<br>
+            Patient Condition: {{ assignment[3] }}<br>
+            Status: {{ assignment[4] }}
+        </li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No active assignments.</p>
+{% endif %}
